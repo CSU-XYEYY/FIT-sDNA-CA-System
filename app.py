@@ -28,18 +28,38 @@ def parameters():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# 读取Excel文件获取参数配置
+# 固定参数配置
 def get_parameters():
-    try:
-        df = pd.read_excel('test.xlsx', engine='openpyxl')
-        if df.empty:
-            raise ValueError('Excel file is empty')
-        # 过滤掉Unnamed列
-        return [col for col in df.columns.tolist() if not col.startswith('Unnamed')]  # 返回参数名称列表
-    except FileNotFoundError:
-        raise ValueError('test.xlsx file not found')
-    except Exception as e:
-        raise ValueError(f'Error reading Excel file: {str(e)}')
+    return {
+        '1. Sex(Male=1, Female=0)': 0,
+        '2. Age': 59,
+        '3. FC': 15,
+        '4. FIT(Positive=1, Negative=0)': 1,
+        '5. KRAS(Positive= Ct value, Negative=0)': 0,
+        '6. BMP3(Positive= Ct value, Negative=0)': 38,
+        '7. NDRG4(Positive= Ct value, Negative=0)': 29,
+        '8. SDC2(Positive= Ct value, Negative=0)': 0
+    }
+
+def calculate_gene_value(ct, base_ct):
+    """计算基因表达值"""
+    if ct is None or ct == 0:  # Negative
+        return 0
+    return (1/2) ** (ct - base_ct)
+
+def preprocess_features(features):
+    """预处理特征值"""
+    # 转换Sex和FIT为数值
+    features[0] = 1 if features[0] == 'Male' else 0  # Sex
+    features[3] = 1 if features[3] == 'Positive' else 0  # FIT
+    
+    # 计算基因表达值
+    features[4] = calculate_gene_value(features[4], 30)  # KRAS
+    features[5] = calculate_gene_value(features[5], 50)  # BMP3
+    features[6] = calculate_gene_value(features[6], 50)  # NDRG4
+    features[7] = calculate_gene_value(features[7], 21)  # SDC2
+    
+    return features
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -54,8 +74,11 @@ def predict():
                 'error': f'Expected {len(expected_params)} parameters, got {len(data)}'
             }), 400
         
+        # 预处理特征值
+        processed_data = preprocess_features(data)
+        
         # 转换为numpy数组
-        features = np.array(data).reshape(1, -1)
+        features = np.array(processed_data).reshape(1, -1)
         
         # 特征处理
         features_poly = poly.fit_transform(features)

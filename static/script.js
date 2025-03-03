@@ -13,12 +13,13 @@ async function initInputs() {
         container.innerHTML = '';
         
         // 为每个参数生成输入框
-        parameters.forEach((param, index) => {
+        let index = 0;
+        for (const [paramName, defaultValue] of Object.entries(parameters)) {
             const div = document.createElement('div');
             div.className = 'input-group';
             
             const label = document.createElement('label');
-            label.textContent = param + ':';
+            label.textContent = paramName + ':';
             label.htmlFor = `feature${index}`;
             
             const input = document.createElement('input');
@@ -26,11 +27,13 @@ async function initInputs() {
             input.step = 'any';
             input.id = `feature${index}`;
             input.required = true;
+            input.value = defaultValue;
             
             div.appendChild(label);
             div.appendChild(input);
             container.appendChild(div);
-        });
+            index++;
+        }
     } catch (error) {
         console.error('Error initializing inputs:', error);
     }
@@ -44,7 +47,20 @@ document.getElementById('prediction-form').addEventListener('submit', async (e) 
     
     // 获取所有输入值
     const inputs = document.querySelectorAll('#input-container input');
-    const features = Array.from(inputs).map(input => parseFloat(input.value));
+    const features = Array.from(inputs).map((input, index) => {
+        const value = parseFloat(input.value);
+        // 对特定参数进行转换
+        if (index === 0) { // KRAS
+            return value > 0 ? Math.pow(0.5, value - 30) : 0;
+        } else if (index === 1) { // BMP3
+            return value > 0 ? Math.pow(0.5, value - 50) : 0;
+        } else if (index === 2) { // NDRG4
+            return value > 0 ? Math.pow(0.5, value - 50) : 0;
+        } else if (index === 3) { // SDC2
+            return value > 0 ? Math.pow(0.5, value - 21) : 0;
+        }
+        return value;
+    });
     
     try {
         // 调用后端API
